@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<canvas id="canvas">your comp doesnt support canvas</canvas>
+<div>
+(Allow a monment to generate)<br>Refresh to generate a new terrain/continent.
+</div>
+<script src="noise.js"></script>
+
+<script>
+	
+	var canvas = document.getElementById('canvas');
+	var ctx = canvas.getContext("2d");
+	var startTime = new Date().getTime();
+	canvas.width = 2000;
+	canvas.height = 2000;
+	
+	//start with black
+	ctx.fillStyle = '#000000';
+	ctx.fillRect(0,0,canvas.width,canvas.height);
+	var img1 = ctx.getImageData(0,0,canvas.width,canvas.height);
+	
+	//average black with simplex noise
+	var numNoise = 2;
+	var noiseIntensity = 300; //less is more intense
+	var noiseFactor = 1;
+	
+	var layers = 1;
+	
+	for(var i = 0; i < numNoise; i++){
+		noise.seed(Math.random());
+		for(var j = 0; j < canvas.height*canvas.width; j++){
+			var n = noise.simplex2((j%canvas.width) / noiseIntensity, Math.floor(j/canvas.width) / noiseIntensity)*128 + 128;
+			var index = j*4;
+			var img1Val = img1.data[index];
+			img1.data[index] = (img1Val*layers + n*noiseFactor)/(layers + noiseFactor);
+			img1.data[index+1] = (img1Val*layers + n*noiseFactor)/(layers + noiseFactor);
+			img1.data[index+2] = (img1Val*layers + n*noiseFactor)/(layers + noiseFactor);
+			
+		}
+		layers += noiseFactor;
+	}
+	ctx.putImageData(img1, 0, 0);
+	
+	//average result with some radial gradients approximatly near the center
+	var numGradients = 3;
+	var gradientFactor = 2;
+	var x,y,r,x1,y1,r1,grd,img2;
+	for(var i = 0; i < numGradients; i++){
+		x = canvas.width/2 + (Math.random()*canvas.width/3 - Math.random()*canvas.width/3);
+		y = canvas.height/2 + (Math.random()*canvas.height/3 - Math.random()*canvas.height/3);
+		r = canvas.height/50 + (Math.random()*canvas.height/100 - Math.random()*canvas.height/100);
+		x1 = x + (Math.random()*r/2 - Math.random()*r/2);
+		y1 = y + (Math.random()*r/2 - Math.random()*r/2);
+		r1 = canvas.height/3 + (Math.random()*canvas.height/5 - Math.random()*canvas.height/5);
+		
+		grd = ctx.createRadialGradient(x, y, r, x1, y1, r1);
+		grd.addColorStop(0, "white");
+		grd.addColorStop(1, "grey");
+		ctx.fillStyle = grd;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		img2 = ctx.getImageData(0,0,canvas.width,canvas.height);
+		//Fill with gradient
+		for(var j = 0; j < img1.data.length; j++){
+			img1.data[j] = (img1.data[j]*layers + img2.data[j]*gradientFactor)/(layers + gradientFactor);
+		}
+		layers += gradientFactor;
+		ctx.putImageData(img1,0,0);
+	}
+	
+	//smoothing edges
+	var smooth = false;
+	var ssmooth = false;
+	if(smooth){
+		for(var j = 0; j < canvas.height; j++){
+			for(var i = 0; i < canvas.width; i++){
+				var index = (j*canvas.width+i)*4;
+				if(j < canvas.height*0.1 || j > canvas.height*0.9 || i < canvas.width*0.1 || i > canvas.width*0.9){
+					img1.data[index] = 0;
+				}else{
+					var count = 0;
+					for(k = -1; k < 2; k++){
+						for(m = -1; m < 2; m++){
+							if(img1.data[index] != img1.data[index + m*4 + k*canvas.width]){
+								count++;
+							}
+						}
+					}
+					if(count > 6){
+						img1.data[index] = img1.data[index + 4];
+					}
+				}
+				
+			}
+			
+		}
+	}
+	
+	//draw land and water
+	var split = 0.7;
+	var s = 0;
+	var total = canvas.width*canvas.height;
+	var sum = 0;
+	while(sum / total < split){
+		sum = 0;
+		s += 5;
+		for(var j = 0; j < img1.data.length; j+=4){
+			if(img1.data[j] < s){
+				sum++;
+			}
+		}
+	}
+	console.log(s);
+	for(var j = 0; j < img1.data.length; j+=4){
+		if(img1.data[j] < s - 10){
+			img1.data[j] = 0;
+			img1.data[j+1] = 5;
+			img1.data[j+2] = 97;
+		}else if(img1.data[j] < s){
+			img1.data[j] = 0;
+			img1.data[j+1] = 0;
+			img1.data[j+2] = 255;
+		}else if (img1.data[j] < s + 3){
+			img1.data[j] = 207;
+			img1.data[j+1] = 188;
+			img1.data[j+2] = 122;
+		}else if (img1.data[j] < s + 25){
+			img1.data[j] = 103;
+			img1.data[j+1] = 196;
+			img1.data[j+2] = 82;
+		}else if (img1.data[j] < s + 45){
+			img1.data[j] = 72;
+			img1.data[j+1] = 82;
+			img1.data[j+2] = 97;
+		}else{
+			img1.data[j] = 166;
+			img1.data[j+1] = 252;
+			img1.data[j+2] = 255;
+		}
+	}
+	ctx.putImageData(img1,0,0);
+	console.log(new Date().getTime()-startTime);
+	
+	
+</script>
+</html>
